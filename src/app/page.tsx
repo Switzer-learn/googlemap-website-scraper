@@ -13,6 +13,7 @@ const initialSearchState: SearchState = {
   results: [],
   loading: false,
   error: null,
+  isFiltered: false, // Add a flag to track if results are filtered
   dashboard: { total: 0, withWebsite: 0, withoutWebsite: 0 },
 };
 
@@ -20,9 +21,11 @@ export default function Home() {
   const [searchState, setSearchState] = React.useState<SearchState>(initialSearchState);
   const { toast } = useToast();
 
-  const handleSearch = async (query: string, radius: number) => {
-    setSearchState((prevState) => ({ ...prevState, loading: true, error: null }));
-    const newState = await searchBusinessesAction(query, radius);
+  // Update handleSearch signature to accept the new filter parameter
+  const handleSearch = async (query: string, radius: number, onlyNoWebsite: boolean) => {
+    setSearchState((prevState) => ({ ...prevState, loading: true, error: null, isFiltered: onlyNoWebsite })); // Set isFiltered flag
+    // Pass the filter value to the server action
+    const newState = await searchBusinessesAction(query, radius, onlyNoWebsite);
     setSearchState(newState);
 
     if (newState.error) {
@@ -32,9 +35,10 @@ export default function Home() {
          description: newState.error,
        });
     } else if (newState.results.length > 0) {
+        const filteredMessage = newState.isFiltered ? " (showing only businesses without websites)" : "";
         toast({
          title: "Search Complete",
-         description: `Found ${newState.dashboard.total} businesses.`,
+         description: `Found ${newState.dashboard.total} businesses${filteredMessage}.`,
        });
     } else {
          toast({
@@ -62,7 +66,16 @@ export default function Home() {
          <>
            <Separator className="my-6" />
            <Dashboard {...searchState.dashboard} />
-           {searchState.results.length > 0 && <ExportControls data={searchState.results} disabled={searchState.loading}/>}
+           {searchState.results.length > 0 && (
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <ExportControls data={searchState.results} disabled={searchState.loading}/>
+                {searchState.isFiltered && (
+                    <p className="text-sm text-muted-foreground mt-2 sm:mt-0">
+                        Results are filtered to show only businesses without websites.
+                    </p>
+                )}
+             </div>
+           )}
            <ResultsTable results={searchState.results} />
          </>
        )}

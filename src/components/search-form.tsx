@@ -1,21 +1,25 @@
+
 "use client";
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Search } from "lucide-react";
+// Import Ban instead of GlobeOff as GlobeOff does not exist in lucide-react
+import { Search, Ban } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -27,10 +31,12 @@ const formSchema = z.object({
     .number()
     .min(100, { message: "Radius must be at least 100 meters." })
     .max(50000, { message: "Radius cannot exceed 50,000 meters." }),
+  onlyNoWebsite: z.boolean().default(false).optional(), // Add the new filter field
 });
 
 interface SearchFormProps {
-  onSearch: (query: string, radius: number) => Promise<void>;
+  // Update onSearch prop to include the new filter parameter
+  onSearch: (query: string, radius: number, onlyNoWebsite: boolean) => Promise<void>;
   loading: boolean;
 }
 
@@ -41,13 +47,15 @@ export function SearchForm({ onSearch, loading }: SearchFormProps) {
     defaultValues: {
       query: "",
       radius: 5000, // Default radius
+      onlyNoWebsite: false, // Default value for the filter
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     console.log("Form submitted:", values);
     try {
-       await onSearch(values.query, values.radius);
+       // Pass the onlyNoWebsite value to the onSearch handler
+       await onSearch(values.query, values.radius, !!values.onlyNoWebsite);
     } catch (error: any) {
        console.error("Search failed:", error);
        toast({
@@ -89,6 +97,36 @@ export function SearchForm({ onSearch, loading }: SearchFormProps) {
              )}
            />
         </div>
+
+         {/* Add the Checkbox for the filter */}
+         <FormField
+            control={form.control}
+            name="onlyNoWebsite"
+            render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-background">
+                 <FormControl>
+                    <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={loading}
+                    />
+                 </FormControl>
+                 <div className="space-y-1 leading-none">
+                    <FormLabel className="flex items-center">
+                        {/* Use Ban icon instead of GlobeOff */}
+                        <Ban className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Only show businesses without websites
+                    </FormLabel>
+                    <FormDescription>
+                        Check this box to filter results and display only businesses that do not have a website listed.
+                    </FormDescription>
+                    <FormMessage />
+                 </div>
+                </FormItem>
+            )}
+         />
+
+
         <Button type="submit" disabled={loading} className="w-full md:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
           <Search className="mr-2 h-4 w-4" />
           {loading ? "Searching..." : "Search Businesses"}

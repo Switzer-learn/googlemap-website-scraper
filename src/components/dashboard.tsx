@@ -1,14 +1,16 @@
 import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Globe, HelpCircle, XCircle } from "lucide-react";
+import { CheckCircle, Globe, XCircle } from "lucide-react";
 
 interface DashboardProps {
-  total: number;
-  withWebsite: number;
-  withoutWebsite: number;
+  total: number; // Total found *before* filtering
+  withWebsite: number; // Count in the *displayed* results
+  withoutWebsite: number; // Count in the *displayed* results
 }
 
 export function Dashboard({ total, withWebsite, withoutWebsite }: DashboardProps) {
+   const displayedTotal = withWebsite + withoutWebsite; // Total currently displayed in the table
+
   return (
     <div className="grid gap-4 md:grid-cols-3 mt-6">
       <Card>
@@ -19,31 +21,31 @@ export function Dashboard({ total, withWebsite, withoutWebsite }: DashboardProps
         <CardContent>
           <div className="text-2xl font-bold">{total}</div>
            <p className="text-xs text-muted-foreground">
-             Total entries from the latest search
+             Total entries initially found by search
            </p>
         </CardContent>
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">With Website</CardTitle>
+          <CardTitle className="text-sm font-medium">With Website (Displayed)</CardTitle>
            <CheckCircle className="h-4 w-4 text-green-500" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{withWebsite}</div>
            <p className="text-xs text-muted-foreground">
-            {total > 0 ? `${((withWebsite / total) * 100).toFixed(1)}%` : '0%'} have a listed website
+            {displayedTotal > 0 ? `${((withWebsite / displayedTotal) * 100).toFixed(1)}%` : '0%'} of displayed results
            </p>
         </CardContent>
       </Card>
-      <Card className="border-destructive bg-destructive/10 dark:bg-destructive/20">
+      <Card className={withoutWebsite > 0 ? "border-destructive bg-destructive/10 dark:bg-destructive/20" : ""}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-destructive dark:text-red-400">Without Website</CardTitle>
-          <XCircle className="h-4 w-4 text-destructive dark:text-red-400" />
+          <CardTitle className={`text-sm font-medium ${withoutWebsite > 0 ? 'text-destructive dark:text-red-400' : ''}`}>Without Website (Displayed)</CardTitle>
+          <XCircle className={`h-4 w-4 ${withoutWebsite > 0 ? 'text-destructive dark:text-red-400' : 'text-muted-foreground'}`} />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-destructive dark:text-red-400">{withoutWebsite}</div>
-           <p className="text-xs text-muted-foreground dark:text-red-400/80">
-            {total > 0 ? `${((withoutWebsite / total) * 100).toFixed(1)}%` : '0%'} are missing a website
+          <div className={`text-2xl font-bold ${withoutWebsite > 0 ? 'text-destructive dark:text-red-400' : ''}`}>{withoutWebsite}</div>
+           <p className={`text-xs ${withoutWebsite > 0 ? 'text-muted-foreground dark:text-red-400/80' : 'text-muted-foreground'}`}>
+            {displayedTotal > 0 ? `${((withoutWebsite / displayedTotal) * 100).toFixed(1)}%` : '0%'} of displayed results
            </p>
         </CardContent>
       </Card>

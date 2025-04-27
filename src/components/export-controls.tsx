@@ -14,7 +14,8 @@ interface ExportControlsProps {
 
 export function ExportControls({ data, disabled }: ExportControlsProps) {
   const { toast } = useToast();
-  const [isExporting, setIsExporting] = React.useState(false);
+  const [isExportingCsv, setIsExportingCsv] = React.useState(false);
+  const [isExportingExcel, setIsExportingExcel] = React.useState(false);
 
   const handleExport = async (format: 'csv' | 'excel') => {
     if (data.length === 0) {
@@ -26,13 +27,15 @@ export function ExportControls({ data, disabled }: ExportControlsProps) {
       return;
     }
 
-    setIsExporting(true);
+    if (format === 'csv') setIsExportingCsv(true);
+    if (format === 'excel') setIsExportingExcel(true);
+
     try {
       const result = await exportDataAction(data, format);
 
-      if (result.success && result.fileContent && result.fileName) {
+      if (result.success && result.fileContent && result.fileName && result.mimeType) {
         // Trigger download
-        const blob = new Blob([result.fileContent], { type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const blob = new Blob([result.fileContent], { type: result.mimeType });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = result.fileName;
@@ -46,19 +49,22 @@ export function ExportControls({ data, disabled }: ExportControlsProps) {
           description: `Data exported to ${result.fileName}`,
         });
       } else {
-        throw new Error(result.error || "Export failed for an unknown reason.");
+        throw new Error(result.error || `Export to ${format} failed for an unknown reason.`);
       }
     } catch (error: any) {
-      console.error("Export failed:", error);
+      console.error(`Export to ${format} failed:`, error);
       toast({
         variant: "destructive",
         title: "Export Error",
         description: error.message || `Could not export data to ${format}.`,
       });
     } finally {
-      setIsExporting(false);
+       if (format === 'csv') setIsExportingCsv(false);
+       if (format === 'excel') setIsExportingExcel(false);
     }
   };
+
+   const isExporting = isExportingCsv || isExportingExcel;
 
   return (
     <div className="flex gap-2 mt-4">
@@ -69,29 +75,17 @@ export function ExportControls({ data, disabled }: ExportControlsProps) {
         disabled={disabled || isExporting || data.length === 0}
       >
         <Download className="mr-2 h-4 w-4" />
-        {isExporting ? "Exporting..." : "Export CSV"}
+        {isExportingCsv ? "Exporting..." : "Export CSV"}
       </Button>
-       {/*
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('excel')}
-            disabled={disabled || isExporting || data.length === 0}
-            title="Excel export requires an external library (not implemented)"
-        >
-            <Download className="mr-2 h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export Excel"}
-        </Button>
-       */}
-        <Button
-            variant="outline"
-            size="sm"
-            disabled={true} // Disable Excel button as it's not implemented
-             title="Excel export requires an external library (not implemented)"
-        >
-            <Download className="mr-2 h-4 w-4" />
-            Export Excel (Soon)
-        </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => handleExport('excel')}
+        disabled={disabled || isExporting || data.length === 0}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        {isExportingExcel ? "Exporting..." : "Export Excel"}
+      </Button>
     </div>
   );
 }
