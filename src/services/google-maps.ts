@@ -1,4 +1,27 @@
-import type { Business, BusinessDetails, Location } from './google-maps-types'; // Import types from new file
+import type { Business, BusinessDetails } from './google-maps-types';
+
+// --- IMPORTANT ---
+// To make actual API calls, you need a way to make HTTP requests.
+// You can use the built-in 'fetch' in Node.js 18+ or install a library like 'axios':
+// npm install axios
+// Uncomment the relevant code sections below and the import if you install axios.
+// import axios from 'axios';
+// -----------------
+
+const API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const PLACES_API_BASE_URL = 'https://maps.googleapis.com/maps/api/place';
+
+/**
+ * Checks if the Google Maps API key is configured.
+ * Logs an error and throws an exception if not configured.
+ */
+function checkApiKey(): void {
+  if (!API_KEY) {
+    const errorMessage = 'Google Maps API key is missing. Please set GOOGLE_MAPS_API_KEY in your .env file.';
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+}
 
 /**
  * Asynchronously searches for businesses using the Google Maps Places API.
@@ -6,106 +29,181 @@ import type { Business, BusinessDetails, Location } from './google-maps-types'; 
  * @param query The search query (e.g., "cafes in Bali").
  * @param radius The search radius in meters.
  * @returns A promise that resolves to an array of Business objects.
+ * @throws Error if API key is missing or if the API request fails.
  */
 export async function searchBusinesses(query: string, radius: number): Promise<Business[]> {
-  console.log(`[Placeholder] Searching Google Maps for: "${query}", radius: ${radius}m`);
-  // TODO: Replace with actual Google Maps Places Text Search API call
-  // Example structure - replace with real API interaction
+  checkApiKey(); // Ensure API key is present
 
-  // Simulate API latency
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  // --- Option 1: Using Node Fetch (Built-in for Node 18+) ---
+   const searchUrl = `${PLACES_API_BASE_URL}/textsearch/json?query=${encodeURIComponent(query)}&radius=${radius}&key=${API_KEY}`;
+   console.log(`[Google Maps] Making Text Search request to: ${PLACES_API_BASE_URL}/textsearch/json?query=...`); // Log safely
 
-  // Simulate results based on query (very basic)
-  if (query.toLowerCase().includes("cafe") && query.toLowerCase().includes("bali")) {
-    return [
-      {
-        name: 'Revolver Espresso',
-        address: 'Jl. Kayu Aya No.Gang 51, Seminyak, Bali',
-        rating: 4.6,
-        placeId: 'ChIJN1t_tDeu0i0R4bq9_eDk', // Example Place ID
+   try {
+     const response = await fetch(searchUrl);
+     const data = await response.json();
+
+     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+       console.error('[Google Maps] Text Search API Error:', data.status, data.error_message);
+       throw new Error(`Google Maps Text Search API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
+     }
+
+     if (data.status === 'ZERO_RESULTS' || !data.results) {
+        console.log('[Google Maps] Text Search returned zero results.');
+        return [];
+     }
+
+     console.log(`[Google Maps] Text Search returned ${data.results.length} results.`);
+     // Map API response to our Business type
+     return data.results.map((place: any) => ({
+       name: place.name || 'N/A',
+       address: place.formatted_address || place.vicinity || 'N/A', // Use formatted_address first, fallback to vicinity
+       rating: place.rating || 0,
+       placeId: place.place_id,
+     }));
+
+   } catch (error: any) {
+     console.error('[Google Maps] Error during Text Search fetch:', error);
+     // Rethrow or handle as appropriate for your app's error strategy
+     throw new Error(`Failed to fetch businesses: ${error.message}`);
+   }
+
+  // --- Option 2: Using Axios (Requires installation: npm install axios) ---
+  /*
+  const searchUrl = `${PLACES_API_BASE_URL}/textsearch/json`;
+  console.log(`[Google Maps] Making Text Search request to: ${searchUrl} with query: ${query}`);
+
+  try {
+    const response = await axios.get(searchUrl, {
+      params: {
+        query: query,
+        radius: radius,
+        key: API_KEY,
       },
-      {
-         name: 'Sisterfields Cafe',
-         address: 'Jl. Kayu Cendana No.7, Seminyak, Bali',
-         rating: 4.5,
-         placeId: 'ChIJ4zaT1Cau0i0R0fN1_eDk', // Example Place ID
-       },
-        {
-         name: 'Kynd Community',
-         address: 'Jalan Petitenget No.12 Kerobokan Kelod, Seminyak, Bali',
-         rating: 4.7,
-         placeId: 'ChIJh5bT7Cau0i0RdfV5_eDk', // Example Place ID (no website)
-       },
-       {
-        name: 'Example Business Without Rating',
-        address: '456 Another St, Denpasar, Bali',
-        rating: 0, // Simulate no rating
-        placeId: 'ChIJo9bT7Cau0i0RdfV6_eDk', // Example Place ID
-      },
-    ];
-  } else if (query.toLowerCase().includes("restaurant")) {
-     return [
-       {
-         name: 'Sample Restaurant',
-         address: '789 Food St',
-         rating: 4.2,
-         placeId: '67890',
-       },
-     ]
+    });
+
+    if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
+      console.error('[Google Maps] Text Search API Error:', response.data.status, response.data.error_message);
+      throw new Error(`Google Maps Text Search API error: ${response.data.status} - ${response.data.error_message || 'Unknown error'}`);
+    }
+
+     if (response.data.status === 'ZERO_RESULTS' || !response.data.results) {
+        console.log('[Google Maps] Text Search returned zero results.');
+        return [];
+     }
+
+    console.log(`[Google Maps] Text Search returned ${response.data.results.length} results.`);
+    // Map API response to our Business type
+    return response.data.results.map((place: any) => ({
+      name: place.name || 'N/A',
+      address: place.formatted_address || place.vicinity || 'N/A',
+      rating: place.rating || 0,
+      placeId: place.place_id,
+    }));
+
+  } catch (error: any) {
+    console.error('[Google Maps] Error during Text Search request:', error.response?.data || error.message);
+    throw new Error(`Failed to fetch businesses: ${error.message}`);
   }
+  */
 
-  // Default: return empty if no specific match
-  console.log("[Placeholder] No specific mock results found, returning empty array.");
-  return [];
+  // --- Fallback/Placeholder (Remove once API calls are uncommented) ---
+  // console.warn("[Google Maps] Using placeholder data for searchBusinesses. Uncomment API call code.");
+  // await new Promise(resolve => setTimeout(resolve, 500)); // Simulate latency
+  // return []; // Return empty array for placeholder
 }
 
 /**
- * Asynchronously fetches the details of a business using the Google Maps Places API.
+ * Asynchronously fetches the details of a business using the Google Maps Place Details API.
  *
  * @param placeId The Google Places ID of the business.
  * @returns A promise that resolves to a BusinessDetails object.
+ * @throws Error if API key is missing or if the API request fails.
  */
 export async function getBusinessDetails(placeId: string): Promise<BusinessDetails> {
-   console.log(`[Placeholder] Fetching details for Place ID: ${placeId}`);
-  // TODO: Replace with actual Google Maps Place Details API call
-  // Need to request 'formatted_phone_number' and 'website' fields
+  checkApiKey(); // Ensure API key is present
 
-  // Simulate API latency
-  await new Promise(resolve => setTimeout(resolve, 500));
+  const fields = 'formatted_phone_number,website'; // Specify required fields
 
+  // --- Option 1: Using Node Fetch (Built-in for Node 18+) ---
+   const detailsUrl = `${PLACES_API_BASE_URL}/details/json?place_id=${placeId}&fields=${fields}&key=${API_KEY}`;
+   console.log(`[Google Maps] Making Place Details request for Place ID: ${placeId}`);
 
-   // Simulate details based on Place ID
-   switch (placeId) {
-    case 'ChIJN1t_tDeu0i0R4bq9_eDk': // Revolver
-      return {
-        phoneNumber: '+62 851-0088-4968',
-        website: 'https://revolverbali.com/',
-      };
-    case 'ChIJ4zaT1Cau0i0R0fN1_eDk': // Sisterfields
-      return {
-        phoneNumber: '+62 811-3860-507',
-        website: 'https://sisterfields.com/',
-      };
-    case 'ChIJh5bT7Cau0i0RdfV5_eDk': // Kynd (No website)
-      return {
-        phoneNumber: '+62 859-3112-0209',
-        website: null, // Simulate missing website
-      };
-    case 'ChIJo9bT7Cau0i0RdfV6_eDk': // Example Business (No Phone)
-       return {
+   try {
+     const response = await fetch(detailsUrl);
+     const data = await response.json();
+
+     if (data.status !== 'OK') {
+       console.error('[Google Maps] Place Details API Error:', data.status, data.error_message);
+       // Don't throw an error here, just return nulls for details
+       // throw new Error(`Google Maps Place Details API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
+        return {
          phoneNumber: null,
-         website: 'http://examplenophone.com',
+         website: null,
        };
-    case '67890': // Sample Restaurant
+     }
+
+     const result = data.result || {};
+      console.log(`[Google Maps] Place Details fetched successfully for ${placeId}. Website: ${result.website ? 'Yes' : 'No'}, Phone: ${result.formatted_phone_number ? 'Yes' : 'No'}`);
+
+     return {
+       phoneNumber: result.formatted_phone_number || null,
+       website: result.website || null,
+     };
+
+   } catch (error: any) {
+     console.error(`[Google Maps] Error during Place Details fetch for ${placeId}:`, error);
+      // Don't throw an error here, return nulls to allow partial results
+      // throw new Error(`Failed to fetch business details: ${error.message}`);
       return {
-         phoneNumber: '555-987-6543',
-         website: 'http://samplerestaurant.net',
-      }
-    default:
-      console.warn(`[Placeholder] No mock details found for Place ID: ${placeId}`);
+        phoneNumber: null,
+        website: null,
+      };
+   }
+
+  // --- Option 2: Using Axios (Requires installation: npm install axios) ---
+  /*
+  const detailsUrl = `${PLACES_API_BASE_URL}/details/json`;
+   console.log(`[Google Maps] Making Place Details request for Place ID: ${placeId}`);
+
+  try {
+    const response = await axios.get(detailsUrl, {
+      params: {
+        place_id: placeId,
+        fields: fields,
+        key: API_KEY,
+      },
+    });
+
+    if (response.data.status !== 'OK') {
+       console.error('[Google Maps] Place Details API Error:', response.data.status, response.data.error_message);
+       // Don't throw an error here, just return nulls for details
+       // throw new Error(`Google Maps Place Details API error: ${response.data.status} - ${response.data.error_message || 'Unknown error'}`);
+        return {
+         phoneNumber: null,
+         website: null,
+       };
+    }
+
+    const result = response.data.result || {};
+    console.log(`[Google Maps] Place Details fetched successfully for ${placeId}. Website: ${result.website ? 'Yes' : 'No'}, Phone: ${result.formatted_phone_number ? 'Yes' : 'No'}`);
+
+    return {
+      phoneNumber: result.formatted_phone_number || null,
+      website: result.website || null,
+    };
+  } catch (error: any) {
+     console.error(`[Google Maps] Error during Place Details request for ${placeId}:`, error.response?.data || error.message);
+     // Don't throw an error here, return nulls to allow partial results
+     // throw new Error(`Failed to fetch business details: ${error.message}`);
       return {
-        phoneNumber: '555-000-0000', // Default placeholder
-        website: 'http://unknown-business.com', // Default placeholder
+        phoneNumber: null,
+        website: null,
       };
   }
+  */
+
+  // --- Fallback/Placeholder (Remove once API calls are uncommented) ---
+  // console.warn(`[Google Maps] Using placeholder data for getBusinessDetails (Place ID: ${placeId}). Uncomment API call code.`);
+  // await new Promise(resolve => setTimeout(resolve, 100)); // Simulate latency
+  // return { phoneNumber: null, website: null }; // Return nulls for placeholder
 }
