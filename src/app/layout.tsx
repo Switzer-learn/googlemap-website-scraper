@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
-import { Geist_Sans } from 'next/font/google'; // Correct import for Geist Sans
+// Use a standard Google Font like Inter instead of Geist_Sans
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 
-const geist = Geist_Sans({
+// Initialize Inter font
+const inter = Inter({
   variable: '--font-sans', // Use --font-sans as recommended
   subsets: ['latin'],
 });
@@ -21,7 +23,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} font-sans antialiased`}> {/* Apply font variable */}
+      {/* Apply the Inter font variable */}
+      <body className={`${inter.variable} font-sans antialiased`}>
         {children}
         <Toaster /> {/* Render the Toaster component */}
       </body>
